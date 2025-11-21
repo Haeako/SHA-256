@@ -1,0 +1,92 @@
+# Reading C:/altera/13.0sp1/modelsim_ase/tcl/vsim/pref.tcl 
+# do SHA256_run_msim_rtl_verilog.do 
+# if {[file exists rtl_work]} {
+# 	vdel -lib rtl_work -all
+# }
+# vlib rtl_work
+# vmap work rtl_work
+# Copying C:\altera\13.0sp1\modelsim_ase\win32aloem/../modelsim.ini to modelsim.ini
+# Modifying modelsim.ini
+# ** Warning: Copied C:\altera\13.0sp1\modelsim_ase\win32aloem/../modelsim.ini to modelsim.ini.
+#          Updated modelsim.ini.
+# 
+# vlog -vlog01compat -work work +incdir+D:/DOC/quartus {D:/DOC/quartus/SHA256.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module SHA256
+# 
+# Top level modules:
+# 	SHA256
+# vlog -vlog01compat -work work +incdir+D:/DOC/quartus {D:/DOC/quartus/core.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module core
+# 
+# Top level modules:
+# 	core
+# vlog -vlog01compat -work work +incdir+D:/DOC/quartus {D:/DOC/quartus/k_const.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module sha256_k_constants
+# 
+# Top level modules:
+# 	sha256_k_constants
+# vlog -vlog01compat -work work +incdir+D:/DOC/quartus {D:/DOC/quartus/sha256_w_mem.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module sha256_w_mem
+# 
+# Top level modules:
+# 	sha256_w_mem
+# 
+# vlog -vlog01compat -work work +incdir+D:/DOC/quartus {D:/DOC/quartus/tb_sha256.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module tb_sha256
+# 
+# Top level modules:
+# 	tb_sha256
+# 
+# vsim -t 1ps -L altera_ver -L lpm_ver -L sgate_ver -L altera_mf_ver -L altera_lnsim_ver -L cycloneii_ver -L rtl_work -L work -voptargs="+acc"  tb_sha256
+# vsim -L altera_ver -L lpm_ver -L sgate_ver -L altera_mf_ver -L altera_lnsim_ver -L cycloneii_ver -L rtl_work -L work -voptargs=\"+acc\" -t 1ps tb_sha256 
+# Loading work.tb_sha256
+# Loading work.SHA256
+# Loading work.core
+# Loading work.sha256_k_constants
+# Loading work.sha256_w_mem
+# 
+# add wave *
+# view structure
+# .main_pane.structure.interior.cs.body.struct
+# view signals
+# .main_pane.objects.interior.cs.body.tree
+# run -all
+#    -- Testbench for sha256 started --
+# *** Toggle reset.
+# *** Testcases for sha256 functionality started.
+# *** TC0 - Single block test started.
+# TC0: OK.
+# *** TC0 - Single block test done.
+# *** TC1 - Double block test started.
+# TC1 first block: OK.
+# TC1 final block: OK.
+# *** TC1 - Double block test done.
+# *** Testcases for sha256 functionality completed.
+# Running test for 9 block issue.
+# Digest ok.
+# *** All 03 test cases completed successfully.
+#    -- Testbench for sha256 done. --
+# ** Note: $finish    : D:/DOC/quartus/tb_sha256.v(623)
+#    Time: 4168 ps  Iteration: 0  Instance: /tb_sha256
+# 1
+# Break in NamedBeginStat main at D:/DOC/quartus/tb_sha256.v line 623
+# Simulation Breakpoint: 1
+# Break in NamedBeginStat main at D:/DOC/quartus/tb_sha256.v line 623
+# MACRO ./SHA256_run_msim_rtl_verilog.do PAUSED at line 20
+# WARNING: No extended dataflow license exists
+# Internal Error: WindowDataRef - an attempt to reference the windowobj .main_pane.dataflow variable showwave failed 
+# because the variable has not been initialized. 
+#  Trace back:  
+#    <1: ::WindowDataRef .main_pane.dataflow showwave 
+# error on window .main_pane.dataflow - no action called registered
+#   Vcop::Action active_window_menu .mBar.activewindowx
+# error on window .main_pane.dataflow - no action called registered
+#   Vcop::Action SetMenuState {{can_insertcursor {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf4.wave_cursor.tb.button_140}} {can_deletecursor {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf4.wave_cursor.tb.button_141}} {can_find_priv_trans {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf4.wave_cursor.tb.button_142}} {can_find_next_trans {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf4.wave_cursor.tb.button_143}} {can_find_priv_fall {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf4.wave_cursor.tb.button_144}} {can_remove_hilite_all {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf7.schematic.tb.button_157}} {can_erase_all {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf7.schematic.tb.button_158}} {can_find_next_fall {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf4.wave_cursor.tb.button_145}} {can_regenerate {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf7.schematic.tb.button_159}} {can_find_priv_rise {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf4.wave_cursor.tb.button_146}} {can_find_next_rise {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf4.wave_cursor.tb.button_147}} {can_trace_input_to_event {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf8.dataflow.tb.button_160}} {can_trace_set {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf8.dataflow.tb.button_161}} {can_showdrivers {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf9.wave.tb.button_168}} {can_trace_reset {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf8.dataflow.tb.button_162}} {can_add_contributors {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf9.wave.tb.button_170}} {can_showreaders {Tbar::setstate_buttondirect 
+# .main_pane.dataflow.interior.cs.controls.tbf9.wave.tb.button_169}} {can_trace_x {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf8.dataflow.tb.button_163}} {can_expand_driver {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf8.dataflow.tb.button_164}} {can_expand_net {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf8.dataflow.tb.button_165}} {can_expand_reader {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf8.dataflow.tb.button_166}} {can_show_wave {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf8.dataflow.tb.button_167}} {can_save {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf0.standard.tb.button_106}} {can_print {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf0.standard.tb.button_108}} {can_cut {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf0.standard.tb.button_109}} {can_copy {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf0.standard.tb.button_110}} {can_bkmgr_add {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf5.bookmarks.tb.button_148}} {can_paste {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf0.standard.tb.button_111}} {can_undo {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf0.standard.tb.button_112}} {can_redo {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf0.standard.tb.button_113}} {can_add2wave {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf0.standard.tb.button_114}} {can_zoomin {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf10.zoom.tb.button_171}} {can_zoomout {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf10.zoom.tb.button_172}} {can_findaction {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf0.standard.tb.button_115}} {can_cllpsall {Tbar::setstate_buttondirect 
+# .main_pane.dataflow.interior.cs.controls.tbf0.standard.tb.button_116}} {can_zoomfull {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf10.zoom.tb.button_173}} {can_zoomcursor {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf10.zoom.tb.button_174}} {can_select_mode {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf6.mode.tb.button_152}} {can_zoomothers {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf10.zoom.tb.button_175}} {can_zoom_mode {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf6.mode.tb.button_153}} {can_pan_mode {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf6.mode.tb.button_154}} {can_edit_mode {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf6.mode.tb.button_155}} {can_stop_drawing {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf6.mode.tb.button_156}} {can_wavesearch {Tbar::setstate_buttondirect .main_pane.dataflow.interior.cs.controls.tbf9.wave.tb.searchwidget}}}
+# unknown option "-hideinverters"

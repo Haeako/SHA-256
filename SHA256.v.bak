@@ -1,0 +1,10 @@
+module shifter (in, A,B,C,clk);
+	input in, clk;
+	input A,B,C;
+	reg A, B, C;
+	always @ (posedge clk) begin
+		A = in;
+		B = A;
+		C = B;
+	end
+endmodule
