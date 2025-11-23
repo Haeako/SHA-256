@@ -9,7 +9,7 @@ module tb_sha256();
   //----------------------------------------------------------------
   parameter DEBUG = 0;
 
-  parameter CLK_HALF_PERIOD = 2;
+  parameter CLK_HALF_PERIOD = 10;
   parameter CLK_PERIOD = 2 * CLK_HALF_PERIOD;
 
   parameter ADDR_CTRL        = 8'h08;

@@ -12,8 +12,7 @@ module SHA256(
               // Data ports.
               input wire  [7 : 0]  address,
               input wire  [31 : 0] write_data,
-              output wire [31 : 0] read_data,
-              output wire          error
+              output wire [31 : 0] read_data
              );
 
   //----------------------------------------------------------------
@@ -67,7 +66,6 @@ module SHA256(
   wire           core_digest_valid;
 
   reg [31 : 0] tmp_read_data;
-  reg          tmp_error;
 
   //----------------------------------------------------------------
   // Concurrent connectivity for ports etc.
@@ -78,8 +76,6 @@ module SHA256(
                        block_reg[12], block_reg[13], block_reg[14], block_reg[15]};
 
   assign read_data = tmp_read_data;
-  assign error     = tmp_error;
-
   //----------------------------------------------------------------
   // core instantiation.
   //----------------------------------------------------------------
@@ -140,7 +136,6 @@ module SHA256(
       next_new      = 0;
       block_we      = 0;
       tmp_read_data = 32'h0;
-      tmp_error     = 0;
 
       if (cs)
         begin

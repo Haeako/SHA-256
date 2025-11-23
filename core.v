@@ -102,64 +102,36 @@ module core(
 
 
   // Function helpers: rotr, shr, big/small sigma, ch, maj
+// Big Sigma 0
+  function [31:0] big_sigma0 (
+	input [31:0] x
+);
+	begin
+    big_sigma0 = ({x[1:0],  x[31:2]}) ^   // ROTR 2
+      ({x[12:0], x[31:13]}) ^  // ROTR 13
+      ({x[21:0], x[31:22]});   // ROTR 22
+	end
+endfunction
+// Big Sigma 1
+  function [31:0] big_sigma1 (
+	input [31:0] x
+);
+	begin
+		big_sigma1 =
+      ({x[5:0],  x[31:6]}) ^   // ROTR 6
+      ({x[10:0], x[31:11]}) ^  // ROTR 11
+      ({x[24:0], x[31:25]});   // ROTR 25
+	end
+endfunction
 
-  function [31:0] rotr;
-    input [31:0] x;
-    input [4:0]  n;
-    begin
-      rotr = (x >> n) | (x << (32 - n));
-    end
+  function [31:0] ch(input [31:0] x, input [31:0] y, input [31:0] z);
+    ch = (x & y) ^ ((~x) & z);
   endfunction
 
-  function [31:0] shr;
-    input [31:0] x;
-    input [4:0]  n;
-    begin
-      shr = x >> n;
-    end
+  function [31:0] maj(input [31:0] x, input [31:0] y, input [31:0] z);
+    maj = (x & y) ^ (x & z) ^ (y & z);
   endfunction
 
-  function [31:0] big_sigma0;
-    input [31:0] x;
-    begin
-      big_sigma0 = rotr(x, 2) ^ rotr(x, 13) ^ rotr(x, 22);
-    end
-  endfunction
-
-  function [31:0] big_sigma1;
-    input [31:0] x;
-    begin
-      big_sigma1 = rotr(x, 6) ^ rotr(x, 11) ^ rotr(x, 25);
-    end
-  endfunction
-
-  function [31:0] small_sigma0;
-    input [31:0] x;
-    begin
-      small_sigma0 = rotr(x, 7) ^ rotr(x, 18) ^ shr(x, 3);
-    end
-  endfunction
-
-  function [31:0] small_sigma1;
-    input [31:0] x;
-    begin
-      small_sigma1 = rotr(x, 17) ^ rotr(x, 19) ^ shr(x, 10);
-    end
-  endfunction
-
-  function [31:0] ch;
-    input [31:0] x, y, z;
-    begin
-      ch = (x & y) ^ ((~x) & z);
-    end
-  endfunction
-
-  function [31:0] maj;
-    input [31:0] x, y, z;
-    begin
-      maj = (x & y) ^ (x & z) ^ (y & z);
-    end
-  endfunction
 
 
   // Module instantiations (k constants and w memory)

@@ -1,6 +1,0 @@
-
-State Machine - |SHA256|core:sha256_core|sha256_ctrl_reg
-Name sha256_ctrl_reg.CTRL_IDLE sha256_ctrl_reg.CTRL_DONE sha256_ctrl_reg.CTRL_ROUNDS 
-sha256_ctrl_reg.CTRL_IDLE 0 0 0 
-sha256_ctrl_reg.CTRL_ROUNDS 1 0 1 
-sha256_ctrl_reg.CTRL_DONE 1 1 0 

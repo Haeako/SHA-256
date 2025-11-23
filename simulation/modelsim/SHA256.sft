@@ -1,5 +1,0 @@
-set tool_name "ModelSim-Altera (VHDL)"
-set corner_file_list {
-	{{"Slow Model"} {SHA256.vho SHA256_vhd.sdo}}
-	{{"Fast Model"} {SHA256_fast.vho SHA256_vhd_fast.sdo}}
-}
