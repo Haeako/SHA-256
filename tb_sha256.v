@@ -1,5 +1,5 @@
 //======================================================================
-
+`timescale 1ns/1ps
 `default_nettype none
 
 module tb_sha256();
@@ -11,11 +11,6 @@ module tb_sha256();
 
   parameter CLK_HALF_PERIOD = 2;
   parameter CLK_PERIOD = 2 * CLK_HALF_PERIOD;
-
-  // The address map.
-  parameter ADDR_NAME0       = 8'h00;
-  parameter ADDR_NAME1       = 8'h01;
-  parameter ADDR_VERSION     = 8'h02;
 
   parameter ADDR_CTRL        = 8'h08;
   parameter CTRL_INIT_VALUE  = 8'h01;
@@ -88,8 +83,7 @@ module tb_sha256();
 
              .address(tb_address),
              .write_data(tb_write_data),
-             .read_data(tb_read_data),
-             .error(tb_error)
+             .read_data(tb_read_data)
             );
 
 
@@ -110,55 +104,48 @@ module tb_sha256();
   // Generates a cycle counter and displays information about
   // the dut as needed.
   //----------------------------------------------------------------
-  always
+  always @(posedge tb_clk)
     begin : sys_monitor
-      #(2 * CLK_HALF_PERIOD);
-      cycle_ctr = cycle_ctr + 1;
+      cycle_ctr <= cycle_ctr + 1;
     end
-
 
   //----------------------------------------------------------------
   // dump_dut_state()
   //
   // Dump the state of the dump when needed.
   //----------------------------------------------------------------
-  task dump_dut_state;
-    begin
-      $display("State of DUT");
-      $display("------------");
-      $display("Inputs and outputs:");
-      $display("cs = 0x%01x, we = 0x%01x",
-               dut.cs, dut.we);
-      $display("address = 0x%02x", dut.address);
-      $display("write_data = 0x%08x, read_data = 0x%08x",
-               dut.write_data, dut.read_data);
-      $display("tmp_read_data = 0x%08x", dut.tmp_read_data);
-      $display("");
+task dump_dut_state;
+  begin
+    $display("State of DUT (ports only)");
+    $display("-------------------------");
+    $display("Inputs and outputs (ports):");
+    $display("  cs = 0x%01x, we = 0x%01x", tb_cs, tb_we);
+    $display("  address = 0x%02x", tb_address);
+    $display("  write_data = 0x%08x, read_data = 0x%08x", tb_write_data, tb_read_data);
+    $display("");
 
-      $display("Control and status:");
-      $display("ctrl = 0x%02x, status = 0x%02x",
-               {dut.next_reg, dut.init_reg},
-               {dut.digest_valid_reg, dut.ready_reg});
-      $display("");
+    // Read control/status via bus (safer)
+    read_word(ADDR_CTRL);
+    $display("CTRL register (via bus read): 0x%08x", read_data);
+    read_word(ADDR_STATUS);
+    $display("STATUS register (via bus read): 0x%08x", read_data);
+    $display("");
 
-      $display("Message block:");
-      $display("block0  = 0x%08x, block1  = 0x%08x, block2  = 0x%08x,  block3  = 0x%08x",
-               dut.block_reg[00], dut.block_reg[01], dut.block_reg[02], dut.block_reg[03]);
-//      $display("block4  = 0x%08x, block5  = 0x%08x, block6  = 0x%08x,  block7  = 0x%08x",
-//               dut.block_reg[04], dut.block_reg[05], dut.block_reg[06], dut.block_reg[07]);
+    // If you want the message block or digest, read them through bus too:
+    $display("First 4 words of message block (via bus reads):");
+    read_word(ADDR_BLOCK0); $display("  block0 = 0x%08x", read_data);
+    read_word(ADDR_BLOCK1); $display("  block1 = 0x%08x", read_data);
+    read_word(ADDR_BLOCK2); $display("  block2 = 0x%08x", read_data);
+    read_word(ADDR_BLOCK3); $display("  block3 = 0x%08x", read_data);
+    $display("");
 
-      $display("block8  = 0x%08x, block9  = 0x%08x, block10 = 0x%08x,  block11 = 0x%08x",
-               dut.block_reg[08], dut.block_reg[09], dut.block_reg[10], dut.block_reg[11]);
-      $display("block12 = 0x%08x, block13 = 0x%08x, block14 = 0x%08x,  block15 = 0x%08x",
-               dut.block_reg[12], dut.block_reg[13], dut.block_reg[14], dut.block_reg[15]);
-      $display("");
+    // Digest: use read_digest task to gather full digest via bus
+    read_digest();
+    $display("Digest (via bus read): 0x%064x", digest_data);
+    $display("");
+  end
+endtask
 
-      $display("Digest:");
-      $display("digest = 0x%064x", dut.digest_reg);
-      $display("");
-
-    end
-  endtask // dump_dut_state
 
 
   //----------------------------------------------------------------
@@ -170,7 +157,10 @@ module tb_sha256();
     begin
       $display("*** Toggle reset.");
       tb_reset_n = 0;
-      #(4 * CLK_HALF_PERIOD);
+       @(posedge tb_clk);
+		 @(posedge tb_clk);
+		 @(posedge tb_clk);
+		 @(negedge tb_clk); 
       tb_reset_n = 1;
     end
   endtask // reset_dut
@@ -228,17 +218,25 @@ module tb_sha256();
   // when the dut is actively processing and will in fact at some
   // point set the flag.
   //----------------------------------------------------------------
-  task wait_ready;
+ task wait_ready;
     begin
       read_data = 0;
+      
+      // ổn định trước khi đọc status lần đầu
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
 
-      while (read_data == 0)
+      while ((read_data & (1<<STATUS_READY_BIT)) == 0) // Kiểm tra bit READY cụ thể
         begin
           read_word(ADDR_STATUS);
+          // cho DUT thời gian tính toán
+          @(posedge tb_clk);
+			 @(posedge tb_clk);
+			 @(posedge tb_clk);
         end
     end
   endtask // wait_ready
-
 
   //----------------------------------------------------------------
   // write_word()
@@ -254,15 +252,25 @@ module tb_sha256();
           $display("");
         end
 
+      // 1. SET UP: Thiết lập Address/Data/Control ở negedge clk
+      @(negedge tb_clk); 
       tb_address = address;
       tb_write_data = word;
       tb_cs = 1;
       tb_we = 1;
-      #(CLK_PERIOD);
+      
+      // 2. LATCH: Chờ posedge clk để DUT lấy mẫu dữ liệu
+      @(posedge tb_clk);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+      // 3. TEAR DOWN: Ngắt tín hiệu Control ở negedge clk (khắc phục lỗi HOLD)
+      @(negedge tb_clk); 
       tb_cs = 0;
       tb_we = 0;
+      
     end
   endtask // write_word
+
 
 
   //----------------------------------------------------------------
@@ -301,11 +309,21 @@ module tb_sha256();
   //----------------------------------------------------------------
   task read_word(input [7 : 0]  address);
     begin
+      // 1. SET UP: Thiết lập Address/Control ở negedge clk
+      @(negedge tb_clk); 
       tb_address = address;
       tb_cs = 1;
       tb_we = 0;
-      #(CLK_PERIOD);
-      read_data = tb_read_data;
+      
+      // 2. LATCH: Chờ posedge clk để DUT đưa data ra
+      @(posedge tb_clk); 
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+      // 3. READ: Đọc dữ liệu ra từ DUT ở negedge clk (T-co an toàn)
+      @(negedge tb_clk);
+      read_data = tb_read_data; 
+      
+      // 4. TEAR DOWN: Ngắt tín hiệu Control 
       tb_cs = 0;
 
       if (DEBUG)
@@ -316,32 +334,6 @@ module tb_sha256();
     end
   endtask // read_word
 
-
-  //----------------------------------------------------------------
-  // check_name_version()
-  //
-  // Read the name and version from the DUT.
-  //----------------------------------------------------------------
-  task check_name_version;
-    reg [31 : 0] name0;
-    reg [31 : 0] name1;
-    reg [31 : 0] version;
-    begin
-
-      read_word(ADDR_NAME0);
-      name0 = read_data;
-      read_word(ADDR_NAME1);
-      name1 = read_data;
-      read_word(ADDR_VERSION);
-      version = read_data;
-
-      $display("DUT name: %c%c%c%c%c%c%c%c",
-               name0[31 : 24], name0[23 : 16], name0[15 : 8], name0[7 : 0],
-               name1[31 : 24], name1[23 : 16], name1[15 : 8], name1[7 : 0]);
-      $display("DUT version: %c%c%c%c",
-               version[31 : 24], version[23 : 16], version[15 : 8], version[7 : 0]);
-    end
-  endtask // check_name_version
 
 
   //----------------------------------------------------------------
@@ -391,10 +383,13 @@ module tb_sha256();
       else
         write_word(ADDR_CTRL, CTRL_INIT_VALUE);
 
-      #(CLK_PERIOD);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		
       wait_ready();
       read_digest();
-
+		//@(negedge tb_clk);
       if (digest_data == expected)
         begin
           $display("TC%01d: OK.", tc_ctr);
@@ -436,7 +431,10 @@ module tb_sha256();
       else
         write_word(ADDR_CTRL, CTRL_INIT_VALUE);
 
-      #(CLK_PERIOD);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		//@(negedge tb_clk);
       wait_ready();
       read_digest();
 		
@@ -460,7 +458,11 @@ module tb_sha256();
       else
         write_word(ADDR_CTRL, CTRL_NEXT_VALUE);
 
-      #(CLK_PERIOD);
+            @(posedge tb_clk);
+				@(posedge tb_clk);
+				@(posedge tb_clk);
+				
+		@(negedge tb_clk);
       wait_ready();
       read_digest();
 
@@ -546,47 +548,76 @@ module tb_sha256();
       tc_ctr = tc_ctr + 1;
       write_block(block0);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_INIT_VALUE));
-      #(CLK_PERIOD);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		
+		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block1);
-      write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      #(CLK_PERIOD);
+      write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));		  
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		
+		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block2);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      #(CLK_PERIOD);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block3);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      #(CLK_PERIOD);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block4);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      #(CLK_PERIOD);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block5);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      #(CLK_PERIOD);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block6);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      #(CLK_PERIOD);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block7);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      #(CLK_PERIOD);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block8);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      #(CLK_PERIOD);
+      @(posedge tb_clk);
+		@(posedge tb_clk);
+		@(posedge tb_clk);
+		//@(negedge tb_clk);
       wait_ready();
 
       read_digest();
