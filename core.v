@@ -128,11 +128,6 @@ module core(
   function [31:0] maj(input [31:0] x, input [31:0] y, input [31:0] z);
     maj = (x & y) ^ (x & z) ^ (y & z);
   endfunction
-
-  //----------------------------------------------------------------
-  // CSA (Carry-Save Adder) Helper Functions
-  // Optimizes multi-operand addition by reducing critical path
-  //----------------------------------------------------------------
   
   // 3-input CSA: Produces sum and carry outputs
   function [63:0] csa3;
@@ -140,8 +135,8 @@ module core(
     reg [31:0] sum, carry;
   begin
     sum = a ^ b ^ c;                      // 3-input XOR for sum bits
-    carry = (a & b) | (b & c) | (a & c);  // Majority function for carry
-    csa3 = {carry, sum};                  // Return {carry[31:0], sum[31:0]}
+    carry = (a & b) | (b & c) | (a & c);  // Majority for carry
+    csa3 = {carry, sum};                  
   end
   endfunction
 
@@ -278,9 +273,8 @@ module core(
 
   // t1 logic - CSA optimized
   // Original: t1 = h + Σ1(e) + Ch(e,f,g) + W + K
-  // Using CSA tree to reduce critical path from ~6ns to ~2.5ns
-  //
-  // CSA Tree Structure:
+
+  // CSA Structure:
   //   Level 1: CSA(h, Σ1(e), Ch(e,f,g)) -> {carry1, sum1}
   //   Level 2: CSA(sum1, W, K) -> {carry2, sum2}
   //   Level 3: CSA(sum2, carry1<<1, carry2<<1) -> {carry3, sum3}
@@ -307,7 +301,6 @@ module core(
                                              {t1_csa1_carry[30:0], 1'b0}, 
                                              {t1_csa2_carry[30:0], 1'b0});
 
-  // Final Carry-Propagate Adder: Convert CSA result to normal binary
   assign t1_final_sum = t1_csa3_sum + {t1_csa3_carry[30:0], 1'b0};
   
   // Assign to t1 register
