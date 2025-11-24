@@ -1,4 +1,9 @@
 *.wlf
+*.sdc
+*.qpf
+*.qsf
+*.mpf
+*.mti
 
 /.vscode
 /work
