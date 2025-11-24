@@ -17,15 +17,6 @@ module core(
 
 
   //Begin Local params
-  localparam SHA224_H0_0 = 32'hc1059ed8;
-  localparam SHA224_H0_1 = 32'h367cd507;
-  localparam SHA224_H0_2 = 32'h3070dd17;
-  localparam SHA224_H0_3 = 32'hf70e5939;
-  localparam SHA224_H0_4 = 32'hffc00b31;
-  localparam SHA224_H0_5 = 32'h68581511;
-  localparam SHA224_H0_6 = 32'h64f98fa7;
-  localparam SHA224_H0_7 = 32'hbefa4fa4;
-
   localparam SHA256_H0_0 = 32'h6a09e667;
   localparam SHA256_H0_1 = 32'hbb67ae85;
   localparam SHA256_H0_2 = 32'h3c6ef372;
@@ -38,9 +29,11 @@ module core(
   // rounds 0..63 -> last index 63
   localparam SHA256_ROUNDS = 6'd63;
 
-  localparam CTRL_IDLE   = 2'd0;
-  localparam CTRL_ROUNDS = 2'd1;
-  localparam CTRL_DONE   = 2'd2;
+  // Control FSM states
+  localparam CTRL_IDLE   = 2'd0; // ready for new block
+  localparam CTRL_ROUNDS = 2'd1; // processing rounds
+  localparam CTRL_DONE   = 2'd2; // digest valid
+  //End Local params
 
 
   // Registers
@@ -53,7 +46,7 @@ module core(
   reg [31:0] f_reg, f_new;
   reg [31:0] g_reg, g_new;
   reg [31:0] h_reg, h_new;
-  reg        a_h_we;
+  reg        a_h_we;        // write enable for a-h registers
 
   reg [31:0] H0_reg, H0_new;
   reg [31:0] H1_reg, H1_new;
@@ -63,7 +56,7 @@ module core(
   reg [31:0] H5_reg, H5_new;
   reg [31:0] H6_reg, H6_new;
   reg [31:0] H7_reg, H7_new;
-  reg        H_we;
+  reg        H_we;          // write enable for H0-H7 registers  
 
   reg [5:0]  t_ctr_reg, t_ctr_new;
   reg        t_ctr_we;
@@ -101,33 +94,37 @@ module core(
   wire [31:0] w_data;
 
 
-  // Function helpers: rotr, shr, big/small sigma, ch, maj
-// Big Sigma 0
-  function [31:0] big_sigma0 (
-	input [31:0] x
-);
-	begin
-    big_sigma0 = ({x[1:0],  x[31:2]}) ^   // ROTR 2
-      ({x[12:0], x[31:13]}) ^  // ROTR 13
-      ({x[21:0], x[31:22]});   // ROTR 22
-	end
-endfunction
-// Big Sigma 1
-  function [31:0] big_sigma1 (
-	input [31:0] x
-);
-	begin
-		big_sigma1 =
-      ({x[5:0],  x[31:6]}) ^   // ROTR 6
-      ({x[10:0], x[31:11]}) ^  // ROTR 11
-      ({x[24:0], x[31:25]});   // ROTR 25
-	end
-endfunction
+// Function helpers: rotr, shr, big/small sigma, ch, maj
 
+  // Big Sigma 0
+  function [31:0] big_sigma0 (
+	  input [31:0] x
+  );
+    begin
+      big_sigma0 = ({x[1:0],  x[31:2]}) ^   // ROTR 2
+        ({x[12:0], x[31:13]}) ^  // ROTR 13
+        ({x[21:0], x[31:22]});   // ROTR 22
+    end
+  endfunction
+  
+  // Big Sigma 1
+  function [31:0] big_sigma1 (
+    input [31:0] x
+  );
+    begin
+      big_sigma1 =
+        ({x[5:0],  x[31:6]}) ^   // ROTR 6
+        ({x[10:0], x[31:11]}) ^  // ROTR 11
+        ({x[24:0], x[31:25]});   // ROTR 25
+    end
+  endfunction
+
+  // Choice
   function [31:0] ch(input [31:0] x, input [31:0] y, input [31:0] z);
     ch = (x & y) ^ ((~x) & z);
   endfunction
 
+  // Majority
   function [31:0] maj(input [31:0] x, input [31:0] y, input [31:0] z);
     maj = (x & y) ^ (x & z) ^ (y & z);
   endfunction
@@ -308,7 +305,6 @@ endfunction
           f_new = SHA256_H0_5;
           g_new = SHA256_H0_6;
           h_new = SHA256_H0_7;
-      
       end
       else begin
         a_new = H0_reg;
