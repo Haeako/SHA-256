@@ -18,9 +18,6 @@ module SHA256(
   //----------------------------------------------------------------
   // Internal constant definitions.
   //----------------------------------------------------------------
-  localparam ADDR_NAME0       = 8'h00;
-  localparam ADDR_NAME1       = 8'h01;
-  localparam ADDR_VERSION     = 8'h02;
 
   localparam ADDR_CTRL        = 8'h08;
   localparam CTRL_INIT_BIT    = 0;
@@ -36,9 +33,6 @@ module SHA256(
   localparam ADDR_DIGEST0   = 8'h20;
   localparam ADDR_DIGEST7   = 8'h27;
 
-  localparam CORE_NAME0     = 32'h73686132; // "sha2"
-  localparam CORE_NAME1     = 32'h2d323536; // "-256"
-  localparam CORE_VERSION   = 32'h312e3830; // "1.80"
 
   //----------------------------------------------------------------
   // Registers including update variables and write enable.
@@ -159,14 +153,6 @@ module SHA256(
                 tmp_read_data = digest_reg[(7 - (address - ADDR_DIGEST0)) * 32 +: 32];
 
               case (address)
-                ADDR_NAME0:
-                  tmp_read_data = CORE_NAME0;
-
-                ADDR_NAME1:
-                  tmp_read_data = CORE_NAME1;
-
-                ADDR_VERSION:
-                  tmp_read_data = CORE_VERSION;
 
                 ADDR_CTRL:
                   tmp_read_data = {30'h0, next_reg, init_reg};

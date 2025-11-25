@@ -47,7 +47,7 @@ module tb_sha256();
   parameter ADDR_DIGEST6   = 8'h26;
   parameter ADDR_DIGEST7   = 8'h27;
   
-  parameter SHA256_MODE    = 1;
+  //parameter SHA256_MODE    = 1;
 
 
   //----------------------------------------------------------------
@@ -64,7 +64,6 @@ module tb_sha256();
   reg [7 : 0]   tb_address;
   reg [31 : 0]  tb_write_data;
   wire [31 : 0] tb_read_data;
-  wire          tb_error;
 
   reg [31 : 0]  read_data;
   reg [255 : 0] digest_data;
@@ -85,6 +84,7 @@ module tb_sha256();
              .write_data(tb_write_data),
              .read_data(tb_read_data)
             );
+
 
 
   //----------------------------------------------------------------
@@ -146,8 +146,6 @@ task dump_dut_state;
   end
 endtask
 
-
-
   //----------------------------------------------------------------
   // reset_dut()
   //
@@ -158,9 +156,6 @@ endtask
       $display("*** Toggle reset.");
       tb_reset_n = 0;
        @(posedge tb_clk);
-		 @(posedge tb_clk);
-		 @(posedge tb_clk);
-		 @(negedge tb_clk); 
       tb_reset_n = 1;
     end
   endtask // reset_dut
@@ -223,8 +218,7 @@ endtask
       read_data = 0;
       
       // ổn định trước khi đọc status lần đầu
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 
       while ((read_data & (1<<STATUS_READY_BIT)) == 0) // Kiểm tra bit READY cụ thể
@@ -232,8 +226,6 @@ endtask
           read_word(ADDR_STATUS);
           // cho DUT thời gian tính toán
           @(posedge tb_clk);
-			 @(posedge tb_clk);
-			 @(posedge tb_clk);
         end
     end
   endtask // wait_ready
@@ -252,8 +244,7 @@ endtask
           $display("");
         end
 
-      // 1. SET UP: Thiết lập Address/Data/Control ở negedge clk
-      @(negedge tb_clk); 
+      // 1. SET UP
       tb_address = address;
       tb_write_data = word;
       tb_cs = 1;
@@ -261,10 +252,8 @@ endtask
       
       // 2. LATCH: Chờ posedge clk để DUT lấy mẫu dữ liệu
       @(posedge tb_clk);
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
       // 3. TEAR DOWN: Ngắt tín hiệu Control ở negedge clk (khắc phục lỗi HOLD)
-      @(negedge tb_clk); 
       tb_cs = 0;
       tb_we = 0;
       
@@ -310,20 +299,18 @@ endtask
   task read_word(input [7 : 0]  address);
     begin
       // 1. SET UP: Thiết lập Address/Control ở negedge clk
-      @(negedge tb_clk); 
+      //@(negedge tb_clk); 
       tb_address = address;
       tb_cs = 1;
       tb_we = 0;
       
-      // 2. LATCH: Chờ posedge clk để DUT đưa data ra
+      // 2. LATCH
       @(posedge tb_clk); 
-      @(posedge tb_clk);
-		@(posedge tb_clk);
-      // 3. READ: Đọc dữ liệu ra từ DUT ở negedge clk (T-co an toàn)
+      // 3. READ:
       @(negedge tb_clk);
       read_data = tb_read_data; 
       
-      // 4. TEAR DOWN: Ngắt tín hiệu Control 
+      // 4. TEAR DOWN:
       tb_cs = 0;
 
       if (DEBUG)
@@ -333,9 +320,123 @@ endtask
         end
     end
   endtask // read_word
+  //----------------------------------------------
+  //test_spam_control_busy ()
+  // spam to block when core is busy
+  //----------------------------------------------
+   task test_spam_control_busy;
+    reg [511:0] block;
+    reg [255:0] expected;
+    reg [31:0]  status;
+    integer     spam_count;
+    begin
+      $display("*** TEST: Spam Control Signals (Init/Next) while Busy started...");
+      
+      // Test vector: "abc"
+      block    = 512'h61626380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018;
+      expected = 256'hBA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD;
 
+      // 1. Setup Input
+      write_block(block);
+      
+      // 2. Start
+      write_word(ADDR_CTRL, CTRL_INIT_VALUE);
+      @(posedge tb_clk);
+      
+      // 3. Spam loop
+      spam_count = 0;
+      read_word(ADDR_STATUS);
+      
+      // Vòng lặp: Nếu chưa Ready (tức là đang Busy) thì Spam lệnh
+      while ((read_data & (1 << STATUS_READY_BIT)) == 0) begin
+          // Spam ngẫu nhiên INIT hoặc NEXT
+          if (spam_count % 2 == 0)
+              write_word(ADDR_CTRL, CTRL_INIT_VALUE); // spam init
+          else
+              write_word(ADDR_CTRL, CTRL_NEXT_VALUE); // spam next 
+          
+          spam_count = spam_count + 1;
+          
+          // Đọc lại status để kiểm tra vòng lặp
+          read_word(ADDR_STATUS);
+      end
+      
+      $display("    -> Spammed control commands %0d times while busy.", spam_count);
 
+      // 4. Check Result
+      // Lúc này vòng lặp while đã thoát, tức là Ready = 1
+      read_digest();
+      
+      if (digest_data == expected) begin
+        $display("*** TEST PASSED: Spam control ignored, Digest correct.");
+      end else begin
+        $display("*** TEST FAILED: Spam control corrupted the state!");
+        $display("    Expected: 0x%064x", expected);
+        $display("    Got:      0x%064x", digest_data);
+        error_ctr = error_ctr + 1;
+      end
+      tc_ctr = tc_ctr + 1;
+      $display("");
+    end
+  endtask
+  //----------------------------------------------
+  //test_write_data_busy ()
+  // write data to block when core is busy
+  //----------------------------------------------
+task test_write_data_busy;
+    reg [511:0] valid_block;
+    reg [511:0] garbage_block;
+    reg [255:0] expected;
+    reg [31:0]  status;
+    begin
+      $display("*** TEST: Write Data into Block while Busy started...");
+      
+      // "abc"
+      valid_block   = 512'h61626380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018;
+      // full "F"
+      garbage_block = 512'hFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+      
+      // vaild digest
+      expected      = 256'hBA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD;
 
+      // 1. Setup Valid Input
+      write_block(valid_block);
+      
+      // 2. Start
+      write_word(ADDR_CTRL, CTRL_INIT_VALUE);
+      @(posedge tb_clk); // Đợi 1 tick để Core nhảy vào trạng thái Busy
+      
+      // check status
+      read_word(ADDR_STATUS);
+      if ((read_data & (1 << STATUS_READY_BIT)) == 0) begin
+          $display("    -> Core is BUSY. Attempting to overwrite block with GARBAGE...");
+          
+          // Write garbage
+          write_block(garbage_block);
+          
+          $display("    -> Overwrite attempt finished.");
+      end else begin
+          $display("WARNING: Core finished too fast, could not test busy-write injection.");
+      end
+      wait_ready();
+      
+      // 5. Check Result
+      read_digest();
+      
+      // Nếu Wrapper chặn tốt -> Core vẫn tính "abc" -> Ra hash của "abc"
+      // Nếu Wrapper không chặn -> Core tính "FFFF..." -> Ra hash sai
+      if (digest_data == expected) begin
+        $display("*** TEST PASSED: Data overwrite blocked. Result matches 'abc'.");
+      end else begin
+        $display("*** TEST FAILED: Data overwrite succeeded (Logic Error)!");
+        $display("    Expected (abc): 0x%064x", expected);
+        $display("    Got (Garbage):  0x%064x", digest_data);
+        error_ctr = error_ctr + 1;
+      end
+      tc_ctr = tc_ctr + 1;
+      $display("");
+    end
+  endtask
   //----------------------------------------------------------------
   // read_digest()
   //
@@ -370,7 +471,7 @@ endtask
   //
   // Perform test of a single block digest.
   //----------------------------------------------------------------
-  task single_block_test(input           mode,
+  task single_block_test(//input           mode,
                          input [511 : 0] block,
                          input [255 : 0] expected);
     begin
@@ -378,13 +479,12 @@ endtask
 
       write_block(block);
 
-      if (mode)
-        write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_INIT_VALUE));
-      else
-        write_word(ADDR_CTRL, CTRL_INIT_VALUE);
+      //if (mode)
+      write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_INIT_VALUE));
+      //else
+      //write_word(ADDR_CTRL, CTRL_INIT_VALUE);
 
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 		
       wait_ready();
@@ -414,7 +514,7 @@ endtask
   // Perform test of a double block digest. Note that we check
   // the digests for both the first and final block.
   //----------------------------------------------------------------
-  task double_block_test(input           mode,
+  task double_block_test(//input           mode,
                          input [511 : 0] block0,
                          input [255 : 0] expected0,
                          input [511 : 0] block1,
@@ -426,13 +526,12 @@ endtask
       // First block
       write_block(block0);
 
-      if (mode)
-        write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_INIT_VALUE));
-      else
-        write_word(ADDR_CTRL, CTRL_INIT_VALUE);
+      //if (mode)
+       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_INIT_VALUE));
+      //else
+        //write_word(ADDR_CTRL, CTRL_INIT_VALUE);
 
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 		//@(negedge tb_clk);
       wait_ready();
@@ -453,16 +552,10 @@ endtask
       // Final block
       write_block(block1);
 
-      if (mode)
+      //if (mode)
         write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      else
-        write_word(ADDR_CTRL, CTRL_NEXT_VALUE);
-
-            @(posedge tb_clk);
-				@(posedge tb_clk);
-				@(posedge tb_clk);
-				
-		@(negedge tb_clk);
+      //else
+        //write_word(ADDR_CTRL, CTRL_NEXT_VALUE);
       wait_ready();
       read_digest();
 
@@ -486,32 +579,49 @@ endtask
   // sha256_tests()
   //
   // Run test cases for sha256.
-  // Test cases taken from:
+  // Test cases 0&3 taken from:
   // http://csrc.nist.gov/groups/ST/toolkit/documents/Examples/SHA256.pdf
   //----------------------------------------------------------------
   task sha256_tests;
     begin : sha256_tests_block
-      reg [511 : 0] tc0;
-      reg [255 : 0] res0;
-
-      reg [511 : 0] tc1_0;
-      reg [255 : 0] res1_0;
-      reg [511 : 0] tc1_1;
-      reg [255 : 0] res1_1;
+       reg [511 : 0] tc0, tc2, tc3;
+      reg [255 : 0] res0, res2, res3;
+      
+      reg [511 : 0] tc_0, tc1_0;     
+      reg [511 : 0] tc_1, tc1_1;   
+      reg [255 : 0] res_0, res1_0;    
+      reg [255 : 0] res_1, res1_1;  
 
       $display("*** Testcases for sha256 functionality started.");
+      
+		tc_0 	= 512'hFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+      tc_1 	= 512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200;
+		
+      res_0	= 256'hef0c748df4da50a8d6c43c013edc3ce76c9d9fa9a1458ade56eb86c0a64492d2;
+      res_1 = 256'h8667E718294E9E0DF1D30600BA3EEB201F764AAD2DAD72748643E4A285E1D1F7;
+      
+      double_block_test(tc_0, res_0, tc_1, res_1);
+		
+      tc0  = 512'h61626380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018;
+      res0 = 	256'hBA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD;
+      single_block_test(tc0, res0);
 
-      tc0 = 512'h61626380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018;
-      res0 = 256'hBA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD;
-      single_block_test(SHA256_MODE, tc0, res0);
-
-      tc1_0 = 512'h6162636462636465636465666465666765666768666768696768696A68696A6B696A6B6C6A6B6C6D6B6C6D6E6C6D6E6F6D6E6F706E6F70718000000000000000;
+      tc1_0 = 	512'h6162636462636465636465666465666765666768666768696768696A68696A6B696A6B6C6A6B6C6D6B6C6D6E6C6D6E6F6D6E6F706E6F70718000000000000000;
       res1_0 = 256'h85E655D6417A17953363376A624CDE5C76E09589CAC5F811CC4B32C1F20E533A;
-      tc1_1 = 512'h000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C0;
+      tc1_1 = 	512'h000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C0;
+		
       res1_1 = 256'h248D6A61D20638B8E5C026930C3E6039A33CE45964FF2167F6ECEDD419DB06C1;
-      double_block_test(SHA256_MODE, tc1_0, res1_0, tc1_1, res1_1);
-
+      double_block_test( tc1_0, res1_0, tc1_1, res1_1);
+		// empty message
+		tc2 = 	512'h80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
+		res2 = 	256'he3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855;
+		single_block_test(tc2, res2);
+		// message with number , text, space, symbol (He11o, wo1rd!)
+		tc3 = 	512'h486531316F2C20776F31726421800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000068;
+		res3 = 256'h986e52a6374de2a103914740d9c6578df3454d6e0bc523490217aea5321d3ae2;
+		single_block_test(tc3, res3);
       $display("*** Testcases for sha256 functionality completed.");
+		
     end
   endtask // sha256_tests
 
@@ -548,8 +658,7 @@ endtask
       tc_ctr = tc_ctr + 1;
       write_block(block0);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_INIT_VALUE));
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 		
 		//@(negedge tb_clk);
@@ -558,64 +667,56 @@ endtask
       write_block(block1);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));		  
 		@(posedge tb_clk);
-		@(posedge tb_clk);
-		@(posedge tb_clk);
+
 		
 		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block2);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block3);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block4);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block5);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block6);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block7);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 		//@(negedge tb_clk);
       wait_ready();
 
       write_block(block8);
       write_word(ADDR_CTRL, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
-      @(posedge tb_clk);
-		@(posedge tb_clk);
+
 		@(posedge tb_clk);
 		//@(negedge tb_clk);
       wait_ready();
@@ -635,6 +736,35 @@ endtask
     end
   endtask // issue_test
 
+ // Robust_check
+	task violation_check;
+	  reg [31:0] read_back;
+	  begin
+		 $display("*** violation_checkstarted");
+
+		 // Write violation 
+		 write_word(8'h30, (CTRL_MODE_VALUE + CTRL_NEXT_VALUE));
+		 @(posedge tb_clk);
+		 read_word(8'h30);
+		 read_back = read_data;
+		 if (read_back !== 32'h0) begin
+			$display("WARNING: Write to invalid address modified DUT! read_back=0x%08x", read_back);
+		 end else begin
+			$display("Write violation correctly ignored");
+		 end
+
+		 // Read violation 
+		 read_word(8'h31);
+		 read_back = read_data;
+		 if (read_back !== 32'h0) begin
+			$display("WARNING: Read from invalid address returned non-zero! read_back=0x%08x", read_back);
+		 end else begin
+			$display("Read violation correctly ignored");
+		 end
+		
+		 $display("*** violation_check done");
+	  end
+	endtask
 
   //----------------------------------------------------------------
   // The main test functionality.
@@ -645,9 +775,13 @@ endtask
 
       init_sim();
       reset_dut();
-      sha256_tests();
-      issue_test();
-
+		sha256_tests();
+		issue_test();
+		$display("   -- Testbench for sha256 robustness. --");
+		
+		test_spam_control_busy();
+		test_write_data_busy();
+      
       display_test_result();
 
       $display("   -- Testbench for sha256 done. --");

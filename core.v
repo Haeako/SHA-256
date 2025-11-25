@@ -1,6 +1,7 @@
 // sha256_core.v
 `default_nettype none
 
+
 module core(
     input  wire           clk,
     input  wire           reset_n,
@@ -17,15 +18,6 @@ module core(
 
 
   //Begin Local params
-  localparam SHA224_H0_0 = 32'hc1059ed8;
-  localparam SHA224_H0_1 = 32'h367cd507;
-  localparam SHA224_H0_2 = 32'h3070dd17;
-  localparam SHA224_H0_3 = 32'hf70e5939;
-  localparam SHA224_H0_4 = 32'hffc00b31;
-  localparam SHA224_H0_5 = 32'h68581511;
-  localparam SHA224_H0_6 = 32'h64f98fa7;
-  localparam SHA224_H0_7 = 32'hbefa4fa4;
-
   localparam SHA256_H0_0 = 32'h6a09e667;
   localparam SHA256_H0_1 = 32'hbb67ae85;
   localparam SHA256_H0_2 = 32'h3c6ef372;
@@ -38,9 +30,11 @@ module core(
   // rounds 0..63 -> last index 63
   localparam SHA256_ROUNDS = 6'd63;
 
-  localparam CTRL_IDLE   = 2'd0;
-  localparam CTRL_ROUNDS = 2'd1;
-  localparam CTRL_DONE   = 2'd2;
+  // Control FSM states
+  localparam CTRL_IDLE   = 2'd0; // ready for new block
+  localparam CTRL_ROUNDS = 2'd1; // processing rounds
+  localparam CTRL_DONE   = 2'd2; // digest valid
+  //End Local params
 
 
   // Registers
@@ -53,7 +47,7 @@ module core(
   reg [31:0] f_reg, f_new;
   reg [31:0] g_reg, g_new;
   reg [31:0] h_reg, h_new;
-  reg        a_h_we;
+  reg        a_h_we;        // write enable for a-h registers
 
   reg [31:0] H0_reg, H0_new;
   reg [31:0] H1_reg, H1_new;
@@ -63,7 +57,7 @@ module core(
   reg [31:0] H5_reg, H5_new;
   reg [31:0] H6_reg, H6_new;
   reg [31:0] H7_reg, H7_new;
-  reg        H_we;
+  reg        H_we;          // write enable for H0-H7 registers  
 
   reg [5:0]  t_ctr_reg, t_ctr_new;
   reg        t_ctr_we;
@@ -101,37 +95,57 @@ module core(
   wire [31:0] w_data;
 
 
-  // Function helpers: rotr, shr, big/small sigma, ch, maj
-// Big Sigma 0
-  function [31:0] big_sigma0 (
-	input [31:0] x
-);
-	begin
-    big_sigma0 = ({x[1:0],  x[31:2]}) ^   // ROTR 2
-      ({x[12:0], x[31:13]}) ^  // ROTR 13
-      ({x[21:0], x[31:22]});   // ROTR 22
-	end
-endfunction
-// Big Sigma 1
-  function [31:0] big_sigma1 (
-	input [31:0] x
-);
-	begin
-		big_sigma1 =
-      ({x[5:0],  x[31:6]}) ^   // ROTR 6
-      ({x[10:0], x[31:11]}) ^  // ROTR 11
-      ({x[24:0], x[31:25]});   // ROTR 25
-	end
-endfunction
+// Function helpers: rotr, shr, big/small sigma, ch, maj
 
+  // Big Sigma 0
+  function [31:0] big_sigma0 (
+	  input [31:0] x
+  );
+    begin
+      big_sigma0 = ({x[1:0],  x[31:2]}) ^   // ROTR 2
+        ({x[12:0], x[31:13]}) ^  // ROTR 13
+        ({x[21:0], x[31:22]});   // ROTR 22
+    end
+  endfunction
+  
+  // Big Sigma 1
+  function [31:0] big_sigma1 (
+    input [31:0] x
+  );
+    begin
+      big_sigma1 =
+        ({x[5:0],  x[31:6]}) ^   // ROTR 6
+        ({x[10:0], x[31:11]}) ^  // ROTR 11
+        ({x[24:0], x[31:25]});   // ROTR 25
+    end
+  endfunction
+
+  // Choice
   function [31:0] ch(input [31:0] x, input [31:0] y, input [31:0] z);
     ch = (x & y) ^ ((~x) & z);
   endfunction
 
+  // Majority
   function [31:0] maj(input [31:0] x, input [31:0] y, input [31:0] z);
     maj = (x & y) ^ (x & z) ^ (y & z);
   endfunction
+  
+  // 3-input CSA: Produces sum and carry outputs
+  function [63:0] csa3;
+    input [31:0] a, b, c;
+    reg [31:0] sum, carry;
+  begin
+    sum = a ^ b ^ c;                      // 3-input XOR for sum bits
+    carry = (a & b) | (b & c) | (a & c);  // Majority for carry
+    csa3 = {carry, sum};                  
+  end
+  endfunction
 
+  // CSA wires for T1 calculation
+  wire [31:0] t1_csa1_sum, t1_csa1_carry;
+  wire [31:0] t1_csa2_sum, t1_csa2_carry;
+  wire [31:0] t1_csa3_sum, t1_csa3_carry;
+  wire [31:0] t1_final_sum;
 
 
   // Module instantiations (k constants and w memory)
@@ -258,17 +272,42 @@ endfunction
   end // digest_logic
 
 
-  // t1 logic
+  // t1 logic - CSA optimized
+  // Original: t1 = h + Σ1(e) + Ch(e,f,g) + W + K
+
+  // CSA Structure:
+  //   Level 1: CSA(h, Σ1(e), Ch(e,f,g)) -> {carry1, sum1}
+  //   Level 2: CSA(sum1, W, K) -> {carry2, sum2}
+  //   Level 3: CSA(sum2, carry1<<1, carry2<<1) -> {carry3, sum3}
+  //   Final:   CPA(sum3 + carry3<<1) -> t1
+
+  // Intermediate values
+  reg [31:0] t1_sum1_val;
+  reg [31:0] t1_chv_val;
+  reg [63:0] t1_csa_result;
 
   always @* begin : t1_logic
-    reg [31:0] sum1;
-    reg [31:0] chv;
-
-    sum1 = big_sigma1(e_reg);
-    chv  = ch(e_reg, f_reg, g_reg);
-
-    t1 = h_reg + sum1 + chv + w_data + k_data;
+    t1_sum1_val = big_sigma1(e_reg);
+    t1_chv_val  = ch(e_reg, f_reg, g_reg);
   end // t1_logic
+
+  // CSA Level 1: Add h + Σ1(e) + Ch(e,f,g)
+  assign {t1_csa1_carry, t1_csa1_sum} = csa3(h_reg, t1_sum1_val, t1_chv_val);
+
+  // CSA Level 2: Add w_data + k_data + csa1_sum
+  assign {t1_csa2_carry, t1_csa2_sum} = csa3(w_data, k_data, t1_csa1_sum);
+
+  // CSA Level 3: Add csa2_sum + csa1_carry<<1 + csa2_carry<<1
+  assign {t1_csa3_carry, t1_csa3_sum} = csa3(t1_csa2_sum, 
+                                             {t1_csa1_carry[30:0], 1'b0}, 
+                                             {t1_csa2_carry[30:0], 1'b0});
+
+  assign t1_final_sum = t1_csa3_sum + {t1_csa3_carry[30:0], 1'b0};
+  
+  // Assign to t1 register
+  always @* begin : t1_assign
+    t1 = t1_final_sum;
+  end // t1_assign
 
 
   // t2 logic
@@ -308,7 +347,6 @@ endfunction
           f_new = SHA256_H0_5;
           g_new = SHA256_H0_6;
           h_new = SHA256_H0_7;
-      
       end
       else begin
         a_new = H0_reg;
