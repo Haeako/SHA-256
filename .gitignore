@@ -1,0 +1,13 @@
+*.wlf
+*.sdc
+*.qpf
+*.qsf
+*.mpf
+*.mti
+
+/.vscode
+/work
+/db
+/incremental_db
+/output_files
+/simulation
