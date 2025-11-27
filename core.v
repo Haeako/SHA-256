@@ -433,7 +433,7 @@ module core(
           sha256_ctrl_we   = 1'b1;
         end
 
-        if (next) begin
+        else if (next) begin
           t_ctr_rst        = 1'b1;
           w_init           = 1'b1;
           state_init       = 1'b1;
