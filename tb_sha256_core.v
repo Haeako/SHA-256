@@ -140,7 +140,7 @@ module tb_sha256_core();
     begin
       $display("*** Toggle reset.");
       tb_reset_n = 0;
-      #(4 * CLK_HALF_PERIOD);
+      #(2 * CLK_HALF_PERIOD);
       tb_reset_n = 1;
     end
   endtask // reset_dut
