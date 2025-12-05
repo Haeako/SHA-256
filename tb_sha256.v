@@ -20,8 +20,8 @@ module tb_sha256();
   parameter CTRL_MODE_VALUE  = 8'h04;
 
   parameter ADDR_STATUS      = 8'h09;
-  parameter STATUS_READY_BIT = 0;
-  parameter STATUS_VALID_BIT = 1;
+  //parameter STATUS_READY_BIT = 0;
+  //parameter STATUS_VALID_BIT = 1;
 
   parameter ADDR_BLOCK0    = 8'h10;
   parameter ADDR_BLOCK1    = 8'h11;
@@ -195,7 +195,8 @@ module tb_sha256();
 	// Read
       read_word(ADDR_STATUS);
 	// If ready
-      while ((read_data & (1<<STATUS_READY_BIT)) == 0) 
+   // while ((read_data & (1<<STATUS_READY_BIT)) == 0) 
+		while (read_data == 0) 
         begin
           read_word(ADDR_STATUS);
         end
@@ -310,6 +311,7 @@ module tb_sha256();
       $display("*** TC%01d - Double block test done.", tc_ctr);
       tc_ctr = tc_ctr + 1;
       $display("");
+		
     end
   endtask
 
@@ -322,7 +324,7 @@ module tb_sha256();
     integer i;
     begin
       $display("Running test for 9 block issue.");
-      tc_ctr = tc_ctr + 1;
+      
 
       b[0] = 512'h6b900001_496e2074_68652061_72656120_6f662049_6f542028_496e7465_726e6574_206f6620_5468696e_6773292c_206d6f72_6520616e_64206d6f_7265626f_6f6d2c20;
       b[1] = 512'h69742068_61732062_65656e20_6120756e_69766572_73616c20_636f6e73_656e7375_73207468_61742064_61746120_69732074_69732061_206e6577_20746563_686e6f6c;
@@ -351,6 +353,7 @@ module tb_sha256();
           $display("Expected: 0x%064x", expected);
           $display("Got:      0x%064x", digest_data);
           error_ctr = error_ctr + 1;
+		tc_ctr = tc_ctr + 1;
       end
     end
   endtask
@@ -376,8 +379,9 @@ module tb_sha256();
       spam_count = 0;
       read_word(ADDR_STATUS);
       // check busy
-      while ((read_data & (1 << STATUS_READY_BIT)) == 0) begin
-          if (spam_count % 2 == 0) write_word(ADDR_CTRL, CTRL_INIT_VALUE);
+      //while ((read_data & (1 << STATUS_READY_BIT)) == 0) begin
+		while (read_data  == 0) begin
+			 if (spam_count % 2 == 0) write_word(ADDR_CTRL, CTRL_INIT_VALUE);
           else                     write_word(ADDR_CTRL, CTRL_NEXT_VALUE); 
           spam_count = spam_count + 1;
           read_word(ADDR_STATUS);
@@ -415,7 +419,8 @@ module tb_sha256();
       repeat (2) @(posedge tb_clk);
       
       read_word(ADDR_STATUS);
-      if ((read_data & (1 << STATUS_READY_BIT)) == 0) begin
+      //while ((read_data & (1 << STATUS_READY_BIT)) == 0) begin
+		if (read_data == 0) begin
           $display("    -> Core is BUSY. Injecting GARBAGE...");
           write_block(garbage_block);
           $display("    -> Overwrite attempt finished.");
@@ -431,6 +436,9 @@ module tb_sha256();
       end
       tc_ctr = tc_ctr + 1;
       $display("");
+		@(posedge tb_clk); 
+		@(posedge tb_clk); 
+		@(posedge tb_clk); 
     end
   endtask
 

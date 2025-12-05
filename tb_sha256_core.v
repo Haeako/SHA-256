@@ -68,7 +68,7 @@ module tb_sha256_core();
   always
     begin : sys_monitor
       cycle_ctr = cycle_ctr + 1;
-      #(2 * CLK_HALF_PERIOD);
+      #(0.5 * CLK_HALF_PERIOD);
       if (DEBUG)
         begin
           dump_dut_state();

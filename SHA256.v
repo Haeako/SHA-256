@@ -24,8 +24,8 @@ module SHA256(
   localparam CTRL_NEXT_BIT    = 1;
 
   localparam ADDR_STATUS      = 8'h09;
-  localparam STATUS_READY_BIT = 0;
-  localparam STATUS_VALID_BIT = 1;
+  //localparam STATUS_READY_BIT = 0;
+  //localparam STATUS_VALID_BIT = 1;
 
   localparam ADDR_BLOCK0    = 8'h10;
   localparam ADDR_BLOCK15   = 8'h1f;
@@ -142,7 +142,7 @@ module SHA256(
                 end
 
               if ((address >= ADDR_BLOCK0) && (address <= ADDR_BLOCK15))
-                block_we = 1;
+                block_we = core_ready;
             end
           else
             begin
